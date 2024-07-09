@@ -126,6 +126,8 @@ static void periodic_timer_callback(void *arg)
             wifi_eth_tx_ack.session_id = session_id;
             wifi_eth_tx_data.session_id = session_id;
 
+            wifi_eth_tx_ack.protocol_version = PROTOCOL_VERSION;
+
             // updating spi_connected in ack packet
             wifi_eth_tx_ack.spi_connected = spi_connected;
 
@@ -347,6 +349,23 @@ static void periodic_timer_callback(void *arg)
                 wifi_eth_tx_data.sensor[i].status = 0xf; // specifying that the transaction failed in the sensor packet
             }
         }
+        //Slave 7 is always the power board
+        
+        uint8_t tx_spi_powerboard[12]={0xaa,0xbb,0xcc,0xdd,0xee,0xff,0xaa,0xbb,0xcc,0xdd,0xee,0xff}; //Fake packet, cmd to the power board are not yet implemented
+        uint8_t rx_spi_powerboard[12]={0};
+        spi_send(7, tx_spi_powerboard,rx_spi_powerboard, 12);
+        if (crc16_ccitt_check(rx_spi_powerboard,12)) //Packet valid?
+        {
+            wifi_eth_tx_data.powerboard.vbus = (rx_spi_powerboard[2]<<8) | rx_spi_powerboard[3];
+            wifi_eth_tx_data.powerboard.vshunt = (rx_spi_powerboard[4]<<8) | rx_spi_powerboard[5];
+            union floatbytes fb;
+            fb.b[3] = rx_spi_powerboard[6];
+            fb.b[2] = rx_spi_powerboard[7];
+            fb.b[1] = rx_spi_powerboard[8];
+            fb.b[0] = rx_spi_powerboard[9];
+            wifi_eth_tx_data.powerboard.energy = fb.f;
+            
+        }
     }
 
     /* Get IMU latest data*/
@@ -437,7 +456,18 @@ void wifi_eth_receive_cb(uint8_t src_mac[6], uint8_t *data, int len, char eth_or
 
         if (packet_recv->protocol_version != PROTOCOL_VERSION)
         {
-            //printf("Wrong protocol version, got %d instead of %d, ignoring init packet\n", packet_recv->protocol_version, PROTOCOL_VERSION);
+            wifi_eth_tx_ack.protocol_version = PROTOCOL_VERSION;
+            wifi_eth_tx_ack.session_id = packet_recv->session_id;
+            /* Send acknowledge packets to PC to inform version mismatch */
+            if (use_wifi)
+            {
+                wifi_send_data(&wifi_eth_tx_ack, sizeof(struct wifi_eth_packet_ack));
+            }
+            else
+            {
+                eth_send_data(&wifi_eth_tx_ack, sizeof(struct wifi_eth_packet_ack));
+            }
+            ESP_LOGW("", "Wrong protocol version, got %d instead of %d, ignoring init packet.", packet_recv->protocol_version, PROTOCOL_VERSION);
             return; // ignoring packet
         }
 

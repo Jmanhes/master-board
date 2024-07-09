@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define PROTOCOL_VERSION 3
+#define PROTOCOL_VERSION 4
 
 /* Position of the values in the command packet */
 #define UD_COMMAND_MODE 0
@@ -135,7 +135,7 @@
 
 #define FLOAT_TO_D32QN(a,n)       ((int32_t) std::min(std::max(((a) * (1<<(n))), -2147483647.0), 2147483647.0))
 #define FLOAT_TO_D16QN(a,n)       ((int16_t) std::min(std::max((a) * (1<<(n)), -32767.0), 32767.0))
-#define FLOAT_TO_D8QN(a,n)        ((int8_t)  std::min(std::max(((a) * (1<<(n))), -127.0, +127.0)))
+#define FLOAT_TO_D8QN(a,n)        ((int8_t)  std::min(std::max(((a) * (1<<(n))), -127.0), +127.0))
 
 
 #endif
